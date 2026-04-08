@@ -1,7 +1,7 @@
-# ONVIF Command Tester — Project Guide
+# ONVIF Explorer — Project Guide
 
 ## Overview
-Flask web app for testing ONVIF camera commands via SOAP/WSDL. Uses zeep for SOAP client, supports HTTP/HTTPS with self-signed certs.
+Flask web app for exploring and testing ONVIF camera commands via SOAP/WSDL. Uses zeep for SOAP client, supports HTTP/HTTPS with self-signed certs.
 
 ## Project Structure
 ```
@@ -31,8 +31,8 @@ pip install -r requirements.txt
 ```
 
 ## Git Configuration
-- Remote: `https://github.com/dev-sunghwan/onvif_test_tool.git`
-- Push with: `git push https://dev-sunghwan@github.com/dev-sunghwan/onvif_test_tool.git main`
+- Remote: `https://github.com/dev-sunghwan/onvif_explorer.git`
+- Push with: `git push https://dev-sunghwan@github.com/dev-sunghwan/onvif_explorer.git main`
 - Commit email (repo-local): `dev.sunghwan@gmail.com`
 - Commit style: imperative mood, concise (e.g., "Add HTTPS support", "Fix AnyAttribute bug")
 
@@ -52,4 +52,4 @@ pip install -r requirements.txt
 - `sys._MEIPASS` used for template/static paths in frozen mode
 - `console=True` in spec (needed for Flask server log + Ctrl+C shutdown)
 - Hidden imports: zeep.plugins, zeep.wsse.username, zeep.transports, zeep.cache, lxml.etree, lxml._elementpath
-- Build output: `dist/ONVIF_Command_Tester.exe` (~17MB)
+- Build output: `dist/ONVIF_Explorer_v{version}.exe` (~17MB)
