@@ -68,7 +68,7 @@
                             <label class="form-label">Password</label>
                             <div class="input-group input-group-sm">
                                 <input type="password" class="form-control form-control-sm" id="camera-pass"
-                                       placeholder="password">
+                                       placeholder="password" autocomplete="off">
                                 <button class="btn btn-outline-secondary" type="button" id="toggle-pass"
                                         title="Show/hide password">
                                     <i class="bi bi-eye"></i>
@@ -222,6 +222,13 @@
                             <button class="nav-link" data-bs-toggle="tab"
                                     data-bs-target="#tab-res-xml" type="button">Response XML</button>
                         </li>
+                        <li class="nav-item ms-auto">
+                            <button class="nav-link" data-bs-toggle="tab"
+                                    data-bs-target="#tab-history" type="button" id="tab-history-btn">
+                                <i class="bi bi-clock-history me-1"></i>History
+                                <span class="badge bg-secondary ms-1" id="history-count" style="display:none;"></span>
+                            </button>
+                        </li>
                     </ul>
 
                     <!-- Tab content -->
@@ -239,6 +246,17 @@
                         <div class="tab-pane fade" id="tab-res-xml">
                             <div class="result-content" id="result-res-xml">
                                 <span class="text-muted">Response XML will appear here.</span>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="tab-history">
+                            <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom">
+                                <span class="small text-muted">Recent executions (stored locally)</span>
+                                <button class="btn btn-sm btn-outline-danger py-0" id="btn-clear-history">
+                                    <i class="bi bi-trash me-1"></i>Clear
+                                </button>
+                            </div>
+                            <div class="result-content p-0" id="history-list" style="background:#fff; color:#333;">
+                                <div class="p-3 text-muted small">No history yet.</div>
                             </div>
                         </div>
                     </div>

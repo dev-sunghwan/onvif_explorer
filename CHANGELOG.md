@@ -1,5 +1,23 @@
 # ONVIF Command Tester - Development Changelog
 
+## v0.2.0 (2026-04-08)
+
+### Added
+- Command history panel (History tab in Result panel): stores up to 50 executions in localStorage, survives browser close
+  - View button: restores previous JSON/XML result
+  - Replay button: restores WSDL, binding, operation, and parameters for re-execution
+  - Clear button to wipe history
+- Last Response Values panel: flattens JSON response into key-value list with per-value copy button
+- Auto-expand required complex parameter fieldsets on form load
+
+### Fixed
+- `@token` parameter passing to zeep (strip `@` prefix from attribute names)
+- Password field `autocomplete="off"` to prevent browser autofill
+
+### Improved
+- Operation filter/search input above operation dropdown
+- Navbar: title icon color, version badge styling
+
 ## v1.0.0 - Initial Release (2026-02-20)
 
 ### Phase 1: Project Setup

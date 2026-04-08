@@ -8,6 +8,7 @@
     // ── State ──────────────────────────────────────────────
     let currentBindings = {};    // { qualifiedName: { local_name, operations } }
     let currentWsdlUrl = "";
+    let pendingReplay = null;    // { wsdl_url, binding_name, operation_name, raw_params }
 
     // ── DOM Elements ───────────────────────────────────────
     const $ = (sel) => document.querySelector(sel);
@@ -35,6 +36,9 @@
     const responseValuesCard = $("#response-values-card");
     const responseValuesTable = $("#response-values-table");
     const btnClearResponseValues = $("#btn-clear-response-values");
+    const historyList = $("#history-list");
+    const historyCount = $("#history-count");
+    const btnClearHistory = $("#btn-clear-history");
     const loadingOverlay = $("#loading-overlay");
     const loadingText = $("#loading-text");
     const resultJson = $("#result-json");
@@ -155,8 +159,12 @@
 
             bindingSelect.disabled = false;
 
-            // Auto-select first binding and load its operations
-            bindingSelect.selectedIndex = 0;
+            // Auto-select first binding (or pending replay binding)
+            if (pendingReplay && currentBindings[pendingReplay.binding_name]) {
+                bindingSelect.value = pendingReplay.binding_name;
+            } else {
+                bindingSelect.selectedIndex = 0;
+            }
             onBindingChange();
 
             const totalOps = bindingKeys.reduce((sum, k) => sum + currentBindings[k].operations.length, 0);
@@ -244,9 +252,13 @@
         operationSelect.disabled = false;
         btnExecute.disabled = false;
 
-        // Auto-load params for first operation
+        // Auto-load params (or pending replay operation)
         if (ops.length > 0) {
-            operationSelect.selectedIndex = 0;
+            if (pendingReplay && ops.includes(pendingReplay.operation_name)) {
+                operationSelect.value = pendingReplay.operation_name;
+            } else {
+                operationSelect.selectedIndex = 0;
+            }
             onOperationChange();
         }
     }
@@ -271,6 +283,10 @@
             if (result.success) {
                 paramsContainer.style.display = "block";
                 ParamBuilder.buildForm(result.params, paramsForm);
+                if (pendingReplay) {
+                    fillParamsForm(pendingReplay.raw_params);
+                    pendingReplay = null;
+                }
             } else {
                 paramsContainer.style.display = "none";
                 showToast("Failed to load params: " + result.error);
@@ -302,6 +318,7 @@
 
         saveConnectionInfo();
         const params = ParamBuilder.collectParams(paramsForm);
+        const rawParams = collectRawParams(paramsForm);
 
         showLoading("Executing " + operationName + "...");
         btnExecute.disabled = true;
@@ -317,6 +334,21 @@
                 password: pass,
                 params: params,
                 use_https: useHttps.checked,
+            });
+
+            addToHistory({
+                time: new Date().toLocaleTimeString("en-GB"),
+                operation_name: operationName,
+                binding_local: currentBindings[bindingName]?.local_name || bindingName,
+                wsdl_url: currentWsdlUrl,
+                binding_name: bindingName,
+                raw_params: rawParams,
+                success: result.success,
+                execution_time_ms: result.execution_time_ms,
+                result_json: result.result_json,
+                request_xml: result.request_xml,
+                response_xml: result.response_xml,
+                error: result.error,
             });
 
             displayResult(result);
@@ -412,6 +444,116 @@
                 showToast("Copied!");
             });
         });
+    }
+
+    // ── Command History ────────────────────────────────────
+    const HISTORY_KEY = "onvif_history";
+    const MAX_HISTORY = 50;
+
+    function loadHistory() {
+        try { return JSON.parse(localStorage.getItem(HISTORY_KEY)) || []; }
+        catch { return []; }
+    }
+
+    function addToHistory(entry) {
+        const entries = loadHistory();
+        entries.unshift(entry);
+        if (entries.length > MAX_HISTORY) entries.length = MAX_HISTORY;
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(entries));
+        renderHistory();
+    }
+
+    function renderHistory() {
+        const entries = loadHistory();
+        historyCount.textContent = entries.length;
+        historyCount.style.display = entries.length ? "inline" : "none";
+
+        if (entries.length === 0) {
+            historyList.innerHTML = '<div class="p-3 text-muted small">No history yet.</div>';
+            return;
+        }
+
+        historyList.innerHTML = entries.map((e, i) => `
+            <div class="history-entry d-flex align-items-center gap-2 px-3 py-2 border-bottom">
+                <span class="text-muted text-nowrap" style="font-size:0.7rem; min-width:52px">${escapeHtml(e.time)}</span>
+                <span class="fw-medium text-truncate flex-grow-1" style="font-size:0.8rem" title="${escapeHtml(e.operation_name)}">${escapeHtml(e.operation_name)}</span>
+                <span class="text-muted text-truncate d-none d-xl-block" style="font-size:0.72rem; max-width:90px">${escapeHtml(e.binding_local)}</span>
+                <span class="badge ${e.success ? "bg-success" : "bg-danger"}" style="font-size:0.65rem">${e.success ? "OK" : "FAIL"}</span>
+                <span class="text-muted text-nowrap" style="font-size:0.7rem; min-width:42px; text-align:right">${e.execution_time_ms || "-"}ms</span>
+                <button class="btn btn-sm btn-outline-secondary py-0 px-1 history-view-btn" data-index="${i}" title="View result">
+                    <i class="bi bi-eye" style="font-size:0.65rem"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-primary py-0 px-1 history-replay-btn" data-index="${i}" title="Replay">
+                    <i class="bi bi-play" style="font-size:0.65rem"></i>
+                </button>
+            </div>`).join("");
+
+        historyList.querySelectorAll(".history-view-btn").forEach(btn => {
+            btn.addEventListener("click", () => viewHistoryEntry(parseInt(btn.dataset.index)));
+        });
+        historyList.querySelectorAll(".history-replay-btn").forEach(btn => {
+            btn.addEventListener("click", () => replayHistoryEntry(parseInt(btn.dataset.index)));
+        });
+    }
+
+    function viewHistoryEntry(index) {
+        const e = loadHistory()[index];
+        if (!e) return;
+        displayResult({
+            success: e.success,
+            result_json: e.result_json,
+            request_xml: e.request_xml,
+            response_xml: e.response_xml,
+            error: e.error,
+            execution_time_ms: e.execution_time_ms,
+        });
+        document.querySelector('[data-bs-target="#tab-json"]').click();
+    }
+
+    async function replayHistoryEntry(index) {
+        const e = loadHistory()[index];
+        if (!e) return;
+
+        pendingReplay = {
+            binding_name: e.binding_name,
+            operation_name: e.operation_name,
+            raw_params: e.raw_params,
+        };
+
+        if (currentWsdlUrl === e.wsdl_url) {
+            // WSDL already loaded — just select binding/operation
+            if (currentBindings[e.binding_name]) {
+                bindingSelect.value = e.binding_name;
+                onBindingChange();
+            }
+        } else {
+            // Need to reload WSDL first
+            wsdlUrl.value = e.wsdl_url;
+            await loadWsdl();
+        }
+
+        // Switch to JSON tab so user sees the form
+        document.querySelector('[data-bs-target="#tab-json"]').click();
+        showToast("Parameters restored. Press Execute to re-run.", "info");
+    }
+
+    function collectRawParams(form) {
+        const raw = {};
+        form.querySelectorAll("[data-param-name]").forEach(input => {
+            if (input.value.trim() !== "") {
+                raw[input.dataset.paramName] = input.value.trim();
+            }
+        });
+        return raw;
+    }
+
+    function fillParamsForm(rawParams) {
+        for (const [paramName, value] of Object.entries(rawParams)) {
+            try {
+                const input = paramsForm.querySelector(`[data-param-name="${CSS.escape(paramName)}"]`);
+                if (input) input.value = value;
+            } catch { /* skip invalid selectors */ }
+        }
     }
 
     // ── Syntax Highlighting ────────────────────────────────
@@ -666,6 +808,10 @@
     btnClearResponseValues.addEventListener("click", () => {
         responseValuesCard.style.display = "none";
     });
+    btnClearHistory.addEventListener("click", () => {
+        localStorage.removeItem(HISTORY_KEY);
+        renderHistory();
+    });
     togglePass.addEventListener("click", togglePassword);
 
     // HTTPS toggle: auto-switch port 80 <-> 443
@@ -686,5 +832,6 @@
 
     // ── Init ───────────────────────────────────────────────
     loadConnectionInfo();
+    renderHistory();
 
 })();

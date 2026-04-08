@@ -1,6 +1,6 @@
 """ONVIF Command Tester - Flask Web Application."""
 
-VERSION = "0.1.3"
+VERSION = "0.2.0"
 
 import json
 import os

@@ -240,6 +240,10 @@ body {
     border-radius: 4px;
 }
 
+.history-entry:hover {
+    background-color: #f8f9fa;
+}
+
 .response-values-scroll {
     max-height: 280px;
     overflow-y: auto;
