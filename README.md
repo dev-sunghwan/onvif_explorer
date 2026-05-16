@@ -1,164 +1,100 @@
-# ONVIF Command Tester
+# ONVIF Explorer
 
-A Flask-based web application for testing ONVIF SOAP commands via a browser GUI.
+ONVIF Explorer is a Flask-based web application for testing ONVIF SOAP commands through a browser GUI.
 
-Enter camera IP/credentials, load a WSDL URL, and the available operations are automatically listed. Select an operation to get a dynamically generated parameter form, then execute and view results as JSON and SOAP XML.
+Enter camera connection details, load a WSDL URL, choose an operation, fill in the dynamically generated parameter form, and inspect both the parsed JSON result and the raw SOAP XML exchange. I built it as a practical developer and QA tool for quickly checking ONVIF behavior without needing a full certification workflow.
 
-![ONVIF Command Tester screenshot](docs/screenshot.png)
+![ONVIF Explorer screenshot](docs/screenshot.png)
 
 > [Korean documentation (README_ko.md)](README_ko.md)
 
 ## Why this tool?
 
-Existing ONVIF tools don't quite fit the need for quick, interactive command testing:
+Existing ONVIF tools solve adjacent problems, but they are not ideal for quick interactive command testing:
 
-- **ODM (ONVIF Device Manager)** — great for browsing device info and viewing streams, but has virtually no way to call arbitrary ONVIF operations and inspect the raw response.
-- **ODTT (ONVIF Device Test Tool)** — the official conformance test tool, but it's designed for certification batch runs, not ad-hoc debugging.
+- **ODM (ONVIF Device Manager)** is useful for browsing devices and streams, but not for invoking arbitrary operations and inspecting raw responses.
+- **ODTT (ONVIF Device Test Tool)** is aimed at conformance testing rather than day-to-day debugging.
 
-**ONVIF Command Tester** fills that gap: pick any operation from any ONVIF service, fill in the parameters, fire it, and immediately see the JSON result alongside the raw SOAP request and response XML. No setup beyond entering the camera IP.
+ONVIF Explorer fills that gap by making arbitrary ONVIF operations directly testable from a lightweight browser interface.
 
-| | ODM | ODTT | ONVIF Command Tester |
+| | ODM | ODTT | ONVIF Explorer |
 |---|---|---|---|
-| Interactive SOAP command test | ❌ | ❌ | ✅ |
-| Raw SOAP XML visible | ❌ | ❌ | ✅ |
-| Any ONVIF operation on demand | ❌ | ❌ | ✅ |
-| ONVIF profile detection | ❌ | ✅ | ✅ |
-| Complexity | Low | High | **Low** |
-| Target user | General users | Certification engineers | **Developers / QA engineers** |
+| Interactive SOAP command test | no | no | yes |
+| Raw SOAP XML visible | no | no | yes |
+| Any ONVIF operation on demand | no | no | yes |
+| ONVIF profile detection | no | yes | yes |
+| Complexity | low | high | low |
+| Target user | general users | certification engineers | developers / QA engineers |
 
-## Quick Start
+## Quick start
 
-### Option 1: run.bat (Recommended, Windows)
-```
+### Option 1: `run.bat` on Windows
+
+```text
 Double-click run.bat
 ```
-Automatically creates a virtual environment, installs dependencies, starts the Flask server, and opens the browser.
 
-### Option 2: Manual Setup
+### Option 2: Manual setup
+
 ```bash
-git clone https://github.com/dev-sunghwan/onvif_test_tool.git
-cd onvif_test_tool
+git clone https://github.com/dev-sunghwan/onvif_explorer.git
+cd onvif_explorer
 python -m venv .venv
-.venv\Scripts\activate        # Windows
-# source .venv/bin/activate   # macOS/Linux
+.venv\Scripts\activate
 pip install -r requirements.txt
 python app.py
 ```
+
 Open `http://127.0.0.1:5000` in your browser.
 
-## Usage
+## Core features
 
-### 1. Camera Connection
-| Field | Description | Example |
-|-------|-------------|---------|
-| IP Address | Camera IP address | `192.168.1.100` |
-| Port | ONVIF port (HTTP: 80, HTTPS: 443) | `80` |
-| Username | Camera admin account | `admin` |
-| Password | Password | `****` |
-| HTTPS | Enable HTTPS (self-signed certs accepted) | toggle |
+- connection test through `GetDeviceInformation`
+- ONVIF profile detection through `GetServices`
+- preset support for common ONVIF services plus custom WSDL URLs
+- dynamic operation forms generated from XSD metadata
+- raw request and response XML inspection
+- command history and last-response-value reuse for faster follow-up operations
 
-- **Test Connection**: Calls `GetDeviceInformation` to verify connectivity (displays manufacturer, model, firmware version)
-- **Check Profiles**: Calls `GetServices` to detect supported ONVIF profiles (S / T / G / C / A / D / M / Q)
+## Supported service areas
 
-### 2. WSDL Service
-- **Preset dropdown**: Quick access to 16 ONVIF services grouped by category
-- **Custom URL**: Enter any ONVIF WSDL URL directly
-- **Load button**: Parses the WSDL and auto-populates binding/operation dropdowns
+- device management
+- media and media2
+- PTZ
+- imaging
+- events and analytics
+- device I/O
+- recording, search, and replay
+- provisioning and thermal services
+- access control, door control, and credential services
 
-> The first load may take 5-15 seconds as the WSDL is downloaded remotely. Subsequent loads are cached instantly.
+## Project structure
 
-### 3. Operation
-- **Binding**: Select the WSDL-defined binding (usually 1 per service)
-- **Operation**: Dropdown of available ONVIF operations
-  - Filter box to search/narrow down operations by name
-- **Parameters**: Auto-generated input form based on the operation's XSD schema
-  - Required parameters marked with `*`
-  - Required complex types: Auto-expanded on load
-  - Optional complex types: Collapsible fieldsets (click to expand)
-  - Enum types: Dropdown selectors
-  - Boolean: true/false selector
-- **Execute**: Sends the ONVIF command to the camera
-
-### 4. Result Panel
-| Tab | Content |
-|-----|---------|
-| **JSON Result** | Parsed response data (syntax highlighted) |
-| **Request XML** | SOAP request XML sent to the camera |
-| **Response XML** | SOAP response XML received from the camera |
-
-- Execution time (ms) and success/failure status display
-- Copy to clipboard button
-
-### 5. Last Response Values
-After a successful operation, a panel appears at the bottom of the left column showing all non-null response values as a flat key → value list (e.g. `Multicast.Address.Type`, `token`, `UseCount`). Each value has a copy button for quick reference when filling parameters for a subsequent Set* operation.
-
-## Supported ONVIF Services
-
-| Category | Service | Binding | Key Operations |
-|----------|---------|---------|----------------|
-| **Core** | Device Management | DeviceBinding | GetDeviceInformation, GetCapabilities, GetServices, SystemReboot... |
-| | Media (ver10) | MediaBinding | GetProfiles, GetStreamUri, GetVideoSources... |
-| | Media2 (ver20) | Media2Binding | GetProfiles, GetVideoEncoderConfigurations... |
-| **Streaming & Control** | PTZ | PTZBinding | ContinuousMove, AbsoluteMove, GetPresets, GotoPreset... |
-| | Imaging | ImagingBinding | GetImagingSettings, SetImagingSettings, GetOptions... |
-| **Events & Analytics** | Events | EventBinding | Subscribe, PullMessages, GetEventProperties... |
-| | Analytics | AnalyticsEngineBinding | GetSupportedRules, GetRules, CreateRules... |
-| **Hardware I/O** | Device I/O | DeviceIOBinding | GetDigitalInputs, GetRelayOutputs, SetRelayOutputState... |
-| **Recording & Playback** | Recording | RecordingBinding | CreateRecording, GetRecordings, CreateRecordingJob... |
-| | Search | SearchBinding | FindRecordings, GetRecordingSearchResults... |
-| | Replay | ReplayBinding | GetReplayUri, GetReplayConfiguration... |
-| **Specialized** | Provisioning | ProvisioningBinding | PanMove, TiltMove, ZoomMove, FocusMove... |
-| | Thermal | ThermalBinding | GetConfiguration, SetConfiguration... |
-| **Access Control** | Access Control | PACSBinding | GetAccessPointInfo, EnableAccessPoint... |
-| | Door Control | DoorControlBinding | GetDoorInfo, AccessDoor, LockDoor... |
-| | Credential | CredentialBinding | GetCredentialInfo, CreateCredential... |
-
-You can also enter any custom WSDL URL for services not listed above.
-
-## Project Structure
-
-```
-onvif_test_tool/
-├── app.py                      # Flask app entry point + API routes
-├── config.py                   # ONVIF preset WSDL URLs, endpoint mapping
-├── requirements.txt            # Python dependencies (flask, zeep, lxml, requests)
-├── run.bat                     # Windows launch script
+```text
+onvif_explorer/
+├── app.py
+├── config.py
 ├── onvif_client/
-│   ├── __init__.py
-│   ├── wsdl_loader.py          # WSDL loading, binding/operation discovery
-│   ├── type_introspector.py    # Recursive XSD type analysis → parameter schema
-│   ├── command_executor.py     # ONVIF command execution + SOAP XML capture
-│   ├── serializer.py           # zeep object → JSON conversion
-│   └── profile_checker.py      # ONVIF profile detection via GetServices
+│   ├── wsdl_loader.py
+│   ├── type_introspector.py
+│   ├── command_executor.py
+│   ├── serializer.py
+│   └── profile_checker.py
 ├── templates/
-│   └── index.html              # Bootstrap 5 SPA main page
 └── static/
-    ├── css/style.css           # Hanwha Vision branding theme
-    └── js/
-        ├── app.js              # UI logic, API calls, result display
-        └── param-builder.js    # Dynamic parameter form generator
 ```
 
-## API Endpoints
+## Tech stack
 
-| Route | Method | Description |
-|-------|--------|-------------|
-| `/` | GET | Main page |
-| `/api/presets` | GET | ONVIF preset list |
-| `/api/load-wsdl` | POST | Load WSDL → return bindings/operations |
-| `/api/operation-params` | POST | Return operation parameter schema |
-| `/api/execute` | POST | Execute ONVIF command → JSON + XML result |
-| `/api/check-profiles` | POST | Detect supported ONVIF profiles via GetServices |
-
-## Tech Stack
-
-- **Backend**: Python 3, Flask 3.x, zeep 4.x (SOAP client), lxml
-- **Frontend**: Bootstrap 5.3, Bootstrap Icons, Vanilla JavaScript
-- **Authentication**: WS-Security UsernameToken (Digest)
-- **WSDL Cache**: zeep CachingClient (SQLite)
+- Python 3
+- Flask
+- zeep
+- lxml
+- Bootstrap 5
+- Vanilla JavaScript
 
 ## Roadmap
 
-- Command execution history with save/replay
-- Raw SOAP XML direct send mode
-- Auto-fill Set* parameters from last Get* response
+- command execution history with save and replay
+- raw SOAP XML direct-send mode
+- richer auto-fill flows for `Set*` operations from previous responses
